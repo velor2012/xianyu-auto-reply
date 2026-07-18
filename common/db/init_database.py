@@ -150,6 +150,11 @@ class DatabaseInitializer:
             "日志保留天数（所有模块生效，修改后重启服务生效）",
         ),
         (
+            "password_login.mode",
+            "browser",
+            "账号密码登录模式：protocol/browser",
+        ),
+        (
             "captcha.real_mouse_weight_local",
             "1",
             "real_mouse过滑块本地排队权重",
@@ -168,6 +173,11 @@ class DatabaseInitializer:
             "captcha.local_slider_disabled",
             "false",
             "本机滑块是否停止处理并仅使用Token缓存",
+        ),
+        (
+            "captcha.slider_mode",
+            "browser",
+            "滑块滑动方式：browser/real_mouse",
         ),
         (
             "captcha.remote_processing_max",

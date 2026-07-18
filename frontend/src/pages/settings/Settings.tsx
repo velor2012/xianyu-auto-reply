@@ -34,6 +34,8 @@ import { MenuVisibilitySettings } from './MenuVisibilitySettings'
 import { ThemeAppearanceSettingsCard } from './ThemeAppearanceSettingsCard'
 import { ThemeFontSettingsCard } from './ThemeFontSettingsCard'
 import { ServiceRestartCard } from './ServiceRestartCard'
+import { PasswordLoginModeSetting } from './PasswordLoginModeSetting'
+import { SliderModeSetting } from './SliderModeSetting'
 import { useMenuVisibilityStore } from '@/store/menuVisibilityStore'
 import type {
   AuthFooterAdSettings,
@@ -682,6 +684,18 @@ export function Settings() {
                   <span className="switch-slider"></span>
                 </label>
               </div>
+              <PasswordLoginModeSetting
+                value={settings?.['password_login.mode']}
+                onSaved={(mode) => setSettings((current) => (
+                  current ? { ...current, 'password_login.mode': mode } : current
+                ))}
+              />
+              <SliderModeSetting
+                value={settings?.['captcha.slider_mode']}
+                onSaved={(mode) => setSettings((current) => (
+                  current ? { ...current, 'captcha.slider_mode': mode } : current
+                ))}
+              />
             </div>
           </div>
           {/* SMTP邮件配置 */}
