@@ -20,9 +20,7 @@ from launcher.activation import (
     verify_activation_code,
     renew_license,
     save_license,
-    load_and_verify_license,
     format_expire_time,
-    get_remaining_text,
 )
 from launcher.db_checker import check_mysql_connection, check_redis_connection
 from launcher.config_store import save_connection_config, load_connection_config
@@ -83,7 +81,7 @@ class LauncherApp:
         # 异步加载窗口图标（微信公众号二维码）
         self._load_window_icon()
         
-        # 根据激活状态决定显示哪个页面
+        # 启动器直接进入配置页面，不再要求许可证
         self._check_and_show_page()
         
         # 关闭窗口时停止所有服务
@@ -144,12 +142,8 @@ class LauncherApp:
             widget.destroy()
     
     def _check_and_show_page(self):
-        """检查激活状态并显示对应页面"""
-        result = load_and_verify_license(self.machine_id)
-        if result["valid"]:
-            self._show_config_page()
-        else:
-            self._show_activation_page(result["message"])
+        """显示配置页面"""
+        self._show_config_page()
     
     # ==================== 激活页面 ====================
     

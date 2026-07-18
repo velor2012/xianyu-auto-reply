@@ -14,11 +14,6 @@ import tkinter.ttk as ttk
 
 from launcher.gui_theme import COLORS
 from launcher.config_store import load_connection_config
-from launcher.activation import (
-    load_and_verify_license,
-    format_expire_time,
-    get_remaining_text,
-)
 from launcher.updater import check_update, download_update, apply_update
 from launcher.version import CURRENT_VERSION
 
@@ -29,7 +24,6 @@ _NAV_ITEMS = [
     ("log_backend-web", "Backend 日志"),
     ("log_websocket", "WebSocket 日志"),
     ("log_scheduler", "定时任务日志"),
-    ("renew", "激活码续期"),
     ("about", "关于"),
 ]
 
@@ -141,9 +135,6 @@ def _switch_page(app, nav_key: str):
         render_dashboard_page(app)
     elif nav_key == "status":
         _render_status_content(app)
-    elif nav_key == "renew":
-        from launcher.gui_renew import render_renew_page
-        render_renew_page(app)
     elif nav_key == "about":
         from launcher.gui_about import render_about_page
         render_about_page(app)
@@ -169,26 +160,6 @@ def _render_status_content(app):
     # 标题
     tk.Label(inner, text="服务状态", font=("微软雅黑", 14, "bold"),
              fg=COLORS["text"], bg=COLORS["card_bg"]).pack(anchor=tk.W, padx=20, pady=(16, 6))
-
-    # 激活到期信息
-    expire_frame = tk.Frame(inner, bg=COLORS["card_bg"])
-    expire_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
-
-    license_info = load_and_verify_license(app.machine_id)
-    expire_ts = license_info.get("expire_ts", 0)
-    expire_str = format_expire_time(expire_ts)
-    remain_str = get_remaining_text(expire_ts)
-
-    # 到期时间和剩余时间放在同一行
-    tk.Label(expire_frame, text=f"到期时间: {expire_str}", font=("微软雅黑", 9),
-             fg=COLORS["text_secondary"], bg=COLORS["card_bg"]).pack(side=tk.LEFT)
-    remain_color = COLORS["error"] if remain_str == "已过期" else COLORS["accent"]
-    app._remain_label = tk.Label(expire_frame, text=f"（{remain_str}）",
-                                  font=("微软雅黑", 9, "bold"),
-                                  fg=remain_color, bg=COLORS["card_bg"])
-    app._remain_label.pack(side=tk.LEFT, padx=(6, 0))
-    # 保存到期时间戳供定时刷新使用
-    app._expire_ts = expire_ts
 
     # 状态列表
     status_frame = tk.Frame(inner, bg=COLORS["card_bg"])
@@ -386,40 +357,11 @@ def refresh_status(app):
 
 
 def _auto_refresh(app):
-    """每5秒自动刷新状态和剩余时间，并检测激活码是否到期"""
+    """每5秒自动刷新服务状态"""
     if app._current_page == "running":
         if getattr(app, "_active_sub_page", "") == "status":
             refresh_status(app)
-            _update_remaining(app)
-        # 检测是否到期
-        _check_expire(app)
         app.root.after(5000, lambda: _auto_refresh(app))
-
-
-def _update_remaining(app):
-    """刷新剩余时间显示"""
-    if not hasattr(app, "_remain_label") or not hasattr(app, "_expire_ts"):
-        return
-    remain_str = get_remaining_text(app._expire_ts)
-    remain_color = COLORS["error"] if remain_str == "已过期" else COLORS["accent"]
-    app._remain_label.configure(text=f"（{remain_str}）", fg=remain_color)
-
-
-def _check_expire(app):
-    """检测激活码是否到期，到期则停止服务并跳转激活页面"""
-    result = load_and_verify_license(app.machine_id)
-    if result.get("expired", False) or not result.get("valid", False):
-        # 在子线程中停止服务，避免UI卡死
-        def _do_expire_stop():
-            app.service_manager.stop_all()
-            app.root.after(0, lambda: _show_expire_page(app, result))
-        threading.Thread(target=_do_expire_stop, daemon=True).start()
-
-
-def _show_expire_page(app, result):
-    """激活码到期后跳转到激活页面"""
-    msg = result.get("message", "激活码已到期，请重新激活")
-    app._show_activation_page(msg)
 
 
 def _on_check_update(app, btn):
