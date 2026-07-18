@@ -1,0 +1,3 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/07-18-rm-activation/research/activation-removal.md", "reason": "核对启动拦截、运行期停服、线上签发边界"}
+{"file": ".trellis/spec/guides/index.md", "reason": "质量检查与审查事实核验要求"}
