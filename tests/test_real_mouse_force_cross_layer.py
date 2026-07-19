@@ -706,6 +706,18 @@ class PasswordLoginForceTests(unittest.TestCase):
 
 
 class ExternalCaptchaBoundaryTests(unittest.TestCase):
+    def test_empty_url_preserves_precreated_risk_log_id(self):
+        internal = load_internal_route()
+
+        response = asyncio.run(
+            internal.solve_captcha(
+                internal.SolveCaptchaRequest(url=" ", risk_log_id=123)
+            )
+        )
+
+        self.assertEqual(response["code"], 400)
+        self.assertEqual(response["_risk_log_id"], 123)
+
     def test_public_backend_route_always_sends_remote_without_force(self):
         captcha = load_captcha_route()
         from common.models.user import User

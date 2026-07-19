@@ -351,9 +351,17 @@ async def solve_captcha(request: SolveCaptchaRequest):
     import time as _time
     from loguru import logger
 
+    # 在所有早退前固定预建风控日志 ID，确保调用方能完成接管回执。
+    log_id = request.risk_log_id if request.risk_log_id and request.risk_log_id > 0 else None
     url = (request.url or "").strip()
     if not url:
-        return {"success": False, "code": 400, "message": "punish 链接不能为空", "data": None}
+        return {
+            "success": False,
+            "code": 400,
+            "message": "punish 链接不能为空",
+            "data": None,
+            "_risk_log_id": log_id,
+        }
 
     # 清洗 account_id（外部传入，仅用于日志与浏览器实例目录隔离，防止路径注入）
     raw_id = (request.account_id or "external").strip()
@@ -364,7 +372,6 @@ async def solve_captcha(request: SolveCaptchaRequest):
     force_real_mouse = bool(request.force_real_mouse and call_type == "local")
 
     # 记录风控日志（处理中）
-    log_id = request.risk_log_id if request.risk_log_id and request.risk_log_id > 0 else None
     start_ts = _time.time()
     if not log_id:
         try:
