@@ -91,6 +91,8 @@ class BaseConfig(BaseSettings):
     token_cache_ttl_min_hours: float = Field(default=5.0, alias="TOKEN_CACHE_TTL_MIN_HOURS")
     token_cache_ttl_max_hours: float = Field(default=10.0, alias="TOKEN_CACHE_TTL_MAX_HOURS")
 
+    captcha_real_mouse_enabled: bool = Field(default=False, alias="CAPTCHA_REAL_MOUSE")
+
     # 滑块滑动方式由系统设置 captcha.slider_mode 管理，并在每次滑块任务前刷新。
     # 真实鼠标方式仅适用于有图形桌面的 Windows 环境。
 

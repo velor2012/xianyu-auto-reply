@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import faulthandler
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,17 +27,31 @@ from loguru import logger
 from app.core.config import get_settings
 from common.utils.logging_utils import setup_logging
 from common.utils.network_utils import resolve_listen_host
-from common.services.captcha.slider_mode import refresh_slider_mode_from_database
+
 
 faulthandler.enable()
 
-settings = get_settings()
+raw_captcha_real_mouse = os.getenv("CAPTCHA_REAL_MOUSE")
+try:
+    settings = get_settings()
+except Exception:
+    print(
+        f"CAPTCHA_REAL_MOUSE 启动配置: process_env={raw_captcha_real_mouse!r}, "
+        "parsed_enabled=<parse_failed>",
+        file=sys.stderr,
+        flush=True,
+    )
+    raise
 
 # 配置日志（控制台 + 文件 + 第三方库拦截）
 setup_logging(
     log_file=Path(__file__).parent / "logs" / "websocket.log",
     log_level=settings.log_level,
     third_party_loggers=["uvicorn", "uvicorn.error", "uvicorn.access", "fastapi", "websockets", "httpx", "httpcore"],
+)
+logger.info(
+    f"CAPTCHA_REAL_MOUSE 启动配置: process_env={raw_captcha_real_mouse!r}, "
+    f"parsed_enabled={settings.captcha_real_mouse_enabled}"
 )
 
 
@@ -74,6 +89,7 @@ async def lifespan(app: FastAPI):
         logger.error("数据库连接失败，服务退出")
         sys.exit(1)
 
+    from common.services.captcha.slider_mode import refresh_slider_mode_from_database
     await refresh_slider_mode_from_database()
     
     # 从数据库加载日志保留天数配置
