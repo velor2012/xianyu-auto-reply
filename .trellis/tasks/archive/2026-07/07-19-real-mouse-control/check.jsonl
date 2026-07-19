@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/07-19-real-mouse-control/research/confirmed-scope-and-integration.md", "reason": "按确认范围检查三条入口、失败契约和队列不变量"}
+{"file": ".trellis/tasks/07-19-real-mouse-control/research/exe-startup-observability.md", "reason": "验证启动日志确实进入 websocket.stdout.log"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端 lint、构建、状态和交互质量检查"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "管理员配置 API 新增布尔字段的类型一致性"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "复核配置保存到运行时决策的完整数据流"}

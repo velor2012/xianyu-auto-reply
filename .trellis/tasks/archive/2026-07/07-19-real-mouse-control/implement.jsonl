@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/07-19-real-mouse-control/research/confirmed-scope-and-integration.md", "reason": "已确认强制开关范围、策略矩阵、异步读取边界和失败契约"}
+{"file": ".trellis/tasks/07-19-real-mouse-control/research/exe-startup-observability.md", "reason": "EXE 环境继承和 websocket.stdout.log 落盘链路"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "RiskLogs 开关控件与管理员配置区 UI 规范"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "前端、API、system_settings 与 WebSocket 编排的跨层契约检查"}
