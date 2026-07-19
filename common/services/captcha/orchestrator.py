@@ -58,8 +58,18 @@ def _load_fallback_config() -> Tuple[bool, bool, int]:
 
 
 def _real_mouse_enabled() -> bool:
-    """读取系统设置中的真实鼠标滑动方式。"""
-    return is_real_mouse_slider_mode()
+    """读取部署级 CAPTCHA_REAL_MOUSE 开关。"""
+    settings = None
+    try:
+        from app.core.config import get_settings
+        settings = get_settings()
+    except Exception:
+        try:
+            from common.core.config import get_settings
+            settings = get_settings()
+        except Exception:
+            settings = None
+    return bool(getattr(settings, "captcha_real_mouse_enabled", False)) if settings else False
 
 
 def is_real_mouse_enabled() -> bool:
@@ -146,6 +156,7 @@ def run_slider_verification_with_fallback(
     remote_config: Optional[dict] = None,
     weight_class: str = "local",
     slider_mode: Optional[str] = None,
+    force_real_mouse: bool = False,
 ) -> Tuple[bool, Optional[Dict[str, str]], Optional[str]]:
     """主引擎 + DrissionPage 兜底的滑块验证编排。
 
@@ -163,6 +174,7 @@ def run_slider_verification_with_fallback(
         weight_class: 排队来源类别（"local"=本地Token刷新 / "remote"=远程过滑块接口），
             仅 real_mouse 引擎排队时按权重放行使用；默认 "local"。
         slider_mode: 本次任务在入队前读取的滑动方式快照；未传时读取当前进程缓存。
+        force_real_mouse: 本机业务强制使用真实鼠标时传 True；跳过远程和其他引擎回退。
 
     Returns:
         (是否成功, cookies 字典 | None, 通过引擎 | None)
@@ -173,7 +185,7 @@ def run_slider_verification_with_fallback(
     #     非超时（远程有返回，无论成败）→ 直接采用远程结果，不回退。
     #     注意：远程接口自身（/internal/captcha/solve）调用本函数时不传 remote_config，
     #     从而避免“远程地址指回本机”造成的无限递归。
-    if remote_config:
+    if not force_real_mouse and remote_config:
         r_url = (remote_config.get("url") or "").strip()
         r_secret = (remote_config.get("secret") or "").strip()
         if r_url and r_secret:
@@ -227,7 +239,12 @@ def run_slider_verification_with_fallback(
     #    一旦开启且引擎可用：真实鼠标即为唯一引擎——成功返回成功；失败也【直接返回失败、不回退】
     #    原 CDP/DrissionPage 逻辑（避免低效且会被风控识破的 CDP 滑动；下次重试仍走真实鼠标）。
     #    仅当“开启了但引擎不可用”（非 Windows / 未装 pyautogui，属误配置）时，才回退原逻辑兜底。
-    if is_real_mouse_slider_mode(slider_mode):
+    use_real_mouse = (
+        force_real_mouse
+        or _real_mouse_enabled()
+        or is_real_mouse_slider_mode(slider_mode)
+    )
+    if use_real_mouse:
         real_mouse_available = False
         run_real_mouse_verification = None
         try:
@@ -263,6 +280,12 @@ def run_slider_verification_with_fallback(
             logger.info(f"【{user_id}】真实鼠标未通过，按配置不回退，返回失败（下次重试仍用真实鼠标）")
             return False, None, None
         else:
+            if force_real_mouse:
+                logger.error(
+                    f"【{user_id}】强制真实鼠标引擎不可用（需 Windows 桌面 + pyautogui），"
+                    "本次任务直接失败，不回退其他引擎"
+                )
+                return False, None, None
             logger.error(
                 f"【{user_id}】已选择真实鼠标滑动但引擎不可用"
                 f"（需 Windows 桌面 + pyautogui），本次回退原有滑块逻辑"

@@ -55,6 +55,7 @@ async def _read_remote_config() -> Dict[str, Any]:
     keys = [
         "captcha.remote_service_url",
         "captcha.remote_secret_key",
+        "captcha.force_real_mouse",
     ]
     async with async_session_maker() as session:
         rows = (
@@ -64,6 +65,7 @@ async def _read_remote_config() -> Dict[str, Any]:
     return {
         "url": m.get("captcha.remote_service_url", "").strip(),
         "secret": m.get("captcha.remote_secret_key", "").strip(),
+        "force_real_mouse": m.get("captcha.force_real_mouse", "").strip().lower() == "true",
     }
 
 
@@ -82,8 +84,9 @@ async def _solve_slider(
     Returns:
         (status, cookies, message)  status: 'ok'/'fail'/'url_expired'
     """
-    # 配了远程时优先远程
-    if remote_config.get("url") and remote_config.get("secret"):
+    force_real_mouse = bool(remote_config.get("force_real_mouse"))
+    # 强制模式跳过远程，仅委托 websocket 的 local 队列使用真实鼠标。
+    if not force_real_mouse and remote_config.get("url") and remote_config.get("secret"):
         status, cookies, message = await solve_remote(
             remote_url=remote_config["url"],
             remote_secret=remote_config["secret"],
@@ -99,7 +102,10 @@ async def _solve_slider(
         return status, cookies, message
     # 否则委托 WebSocket 滑块引擎（并发、排队和引擎选择统一在 WebSocket）
     resp = await websocket_client.solve_captcha(
-        account_id=account_id, url=slider_url, call_type="local"
+        account_id=account_id,
+        url=slider_url,
+        call_type="local",
+        force_real_mouse=force_real_mouse,
     )
     if isinstance(resp, dict) and resp.get("success"):
         cookies = (resp.get("data") or {}).get("cookies") or {}
@@ -239,6 +245,8 @@ async def run_protocol_login(
                 )
 
                 if result.branch == LoginBranch.SLIDER:
+                    # 每轮新滑块开始前读取一次，配置切换只影响随后开始的任务。
+                    remote_config = await _read_remote_config()
                     slider_rounds += 1
                     guard_cookies = _snapshot_cookies(client, _LOGIN_GUARD_COOKIE_NAMES)
                     if slider_rounds > _MAX_SLIDER_ROUNDS:

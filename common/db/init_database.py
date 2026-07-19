@@ -195,6 +195,11 @@ class DatabaseInitializer:
             "远程过滑块调用冷却截止时间戳",
         ),
         (
+            "captcha.force_real_mouse",
+            "false",
+            "本机业务是否强制使用真实鼠标引擎",
+        ),
+        (
             "show_default_login_info",
             "true",
             "登录页是否展示默认账号密码提示",

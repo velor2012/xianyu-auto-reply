@@ -66,6 +66,7 @@ export function RiskLogs() {
   const [remoteSecret, setRemoteSecret] = useState('')
   const [passCookies, setPassCookies] = useState(false)
   const [blockRemoteCalls, setBlockRemoteCalls] = useState(true)
+  const [forceRealMouse, setForceRealMouse] = useState(false)
   // real_mouse 过滑块本地/远程排队权重（字符串便于输入框编辑，保存时规整为非负数），默认 1
   const [localWeight, setLocalWeight] = useState('1')
   const [remoteWeight, setRemoteWeight] = useState('1')
@@ -146,6 +147,7 @@ export function RiskLogs() {
         setRemoteSecret(res.data.secret_key || '')
         setPassCookies(!!res.data.pass_cookies)
         setBlockRemoteCalls(res.data.block_remote_calls ?? true)
+        setForceRealMouse(res.data.force_real_mouse ?? false)
         setLocalWeight(String(res.data.local_weight ?? 1))
         setRemoteWeight(String(res.data.remote_weight ?? 1))
         setRemoteProcessingMax(String(res.data.remote_processing_max ?? 20))
@@ -234,6 +236,7 @@ export function RiskLogs() {
         remoteSecret.trim(),
         passCookies,
         blockRemoteCalls,
+        forceRealMouse,
         normWeight(localWeight),
         normWeight(remoteWeight),
         processingMax,
@@ -504,6 +507,36 @@ export function RiskLogs() {
               </p>
             </div>
           </div>
+          </div>
+
+          <div className="flex items-start gap-3 mt-4">
+            <button
+              type="button"
+              onClick={() => setForceRealMouse((v) => !v)}
+              disabled={savingConfig}
+              role="switch"
+              aria-label="强制使用真实鼠标引擎"
+              aria-checked={forceRealMouse}
+              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors shrink-0 mt-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${
+                forceRealMouse ? 'bg-blue-500' : 'bg-gray-300 dark:bg-slate-600'
+              }`}
+            >
+              {savingConfig ? (
+                <Loader2 className="absolute left-3.5 h-3 w-3 animate-spin text-white" />
+              ) : (
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    forceRealMouse ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              )}
+            </button>
+            <div className="text-sm">
+              <p className="font-medium text-slate-700 dark:text-slate-200">强制使用真实鼠标引擎</p>
+              <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
+                仅影响随后开始的本机 Token 刷新和密码登录滑块，会占用本机物理鼠标；真实鼠标能力不可用或验证失败时任务直接失败。
+              </p>
+            </div>
           </div>
 
           {/* 数值参数合并为一行四项（窄屏自动换行），说明文字压缩到下方两行小字 */}

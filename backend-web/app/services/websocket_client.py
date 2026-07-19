@@ -246,7 +246,8 @@ class WebSocketServiceClient:
                             call_type: str = "remote", call_user: str | None = None,
                             cookies: str = "", device_id: str = "",
                             extended_queue_timeout: bool = False,
-                            precreated_log_id: int | None = None) -> dict:
+                            precreated_log_id: int | None = None,
+                            force_real_mouse: bool = False) -> dict:
         """调用 websocket 服务独立过滑块（模式B：仅凭 punish 链接求解）。
 
         注意：过滑块（含重试/看门狗）耗时可能达数十秒，远超共享 http_client 的 30s 超时，
@@ -263,6 +264,7 @@ class WebSocketServiceClient:
             extended_queue_timeout: 是否为真人鼠标远程接口预留串行排队时间；默认关闭，
                 避免改变 login、聊天等现有调用的失败等待时间
             precreated_log_id: backend-web 在 Redis 准入锁内预先创建的风控日志 ID
+            force_real_mouse: 仅服务间本机密码登录使用，强制 WebSocket 走 local 真人鼠标队列。
 
         Returns:
             websocket 返回的响应字典（success / data.engine / data.cookies）
@@ -292,6 +294,7 @@ class WebSocketServiceClient:
                     "cookies": cookies or "",
                     "device_id": device_id or "",
                     "risk_log_id": precreated_log_id,
+                    "force_real_mouse": bool(force_real_mouse),
                 }) as resp:
                     return await resp.json(content_type=None)
         except request_not_sent_errors as e:

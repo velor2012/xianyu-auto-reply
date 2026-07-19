@@ -54,13 +54,17 @@ async def _decide_mode(db: AsyncSession) -> bool:
     """
     rows = (await db.execute(
         select(SystemSetting).where(
-            SystemSetting.key == "password_login.mode"
+            SystemSetting.key.in_([
+                "password_login.mode",
+                "captcha.force_real_mouse",
+            ])
         )
     )).scalars().all()
     m = {r.key: (r.value or "").strip() for r in rows}
 
     mode = (m.get("password_login.mode") or "browser").lower()
-    if mode == "protocol":
+    force_real_mouse = m.get("captcha.force_real_mouse", "false").lower() == "true"
+    if force_real_mouse or mode == "protocol":
         return True
     if mode != "browser":
         logger.warning(f"账号密码登录方式 {mode or '空'} 无效，按浏览器登录处理")

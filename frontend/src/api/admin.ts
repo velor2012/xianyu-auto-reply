@@ -155,6 +155,7 @@ export const getRemoteCaptchaConfig = async (): Promise<ApiResponse<{
   secret_key: string
   pass_cookies: boolean
   block_remote_calls: boolean
+  force_real_mouse: boolean
   local_weight: number
   remote_weight: number
   remote_processing_max: number
@@ -170,6 +171,7 @@ export const saveRemoteCaptchaConfig = async (
   secret_key: string,
   pass_cookies: boolean,
   block_remote_calls: boolean,
+  force_real_mouse: boolean,
   local_weight: number,
   remote_weight: number,
   remote_processing_max: number,
@@ -180,6 +182,7 @@ export const saveRemoteCaptchaConfig = async (
     secret_key,
     pass_cookies,
     block_remote_calls,
+    force_real_mouse,
     local_weight,
     remote_weight,
     remote_processing_max,

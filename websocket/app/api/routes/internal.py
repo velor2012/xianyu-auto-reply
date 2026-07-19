@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from common.services.captcha.concurrency import run_browser_task
+from common.services.captcha.orchestrator import is_real_mouse_enabled
 from common.services.captcha.slider_mode import (
     SLIDER_MODE_REAL_MOUSE,
     refresh_slider_mode_from_database,
@@ -91,6 +92,7 @@ class SolveCaptchaRequest(BaseModel):
                                   # 传入后链接过期时可凭此 Cookie 重取新链接继续处理。
     device_id: str = ""           # 可选：设备 ID，配合 cookies 重新请求 token 接口使用
     risk_log_id: int | None = None # backend-web 准入锁内预先创建的风控日志 ID
+    force_real_mouse: bool = False # 仅服务间本机业务请求使用，公开远程调用固定为 False
 
 
 @router.post("/logs/retention")
@@ -359,6 +361,7 @@ async def solve_captcha(request: SolveCaptchaRequest):
     timeout = max(20, min(int(request.browser_timeout or 40), 120))
     call_type = (request.call_type or "remote").strip() or "remote"
     call_user = (request.call_user or "").strip() or None
+    force_real_mouse = bool(request.force_real_mouse and call_type == "local")
 
     # 记录风控日志（处理中）
     log_id = request.risk_log_id if request.risk_log_id and request.risk_log_id > 0 else None
@@ -431,14 +434,19 @@ async def solve_captcha(request: SolveCaptchaRequest):
             url_provider = _remote_url_provider
             logger.info(f"【过滑块接口】account_id={safe_id} 已携带 Cookie，启用链接过期自动重取")
 
-        # 被调用接口不信任请求体中的 call_type，所有请求固定进入远程桶，避免伪装成本地权重。
-        # 远程内部默认无 Cookie 优先；任一队首等待满70秒后按最早入队优先。
-        weight_class = "remote_cookie" if existing_cookies_str else "remote"
+        # 只有服务间本机强制请求进入 local 桶；公开远程调用固定使用 remote/remote_cookie。
+        # force=false 的旧调用保留原有远程桶行为，避免改变既有调度语义。
+        weight_class = "local" if force_real_mouse else ("remote_cookie" if existing_cookies_str else "remote")
         slider_args = (
             safe_id, url, True, False, timeout, existing_cookies_str, url_provider,
         )
         selected_slider_mode = await refresh_slider_mode_from_database()
-        if selected_slider_mode == SLIDER_MODE_REAL_MOUSE:
+        use_real_mouse = (
+            force_real_mouse
+            or is_real_mouse_enabled()
+            or selected_slider_mode == SLIDER_MODE_REAL_MOUSE
+        )
+        if use_real_mouse:
             # 被调用方请求在线程池之前参与本地/远程实时加权排队。
             success, cookies, engine = await real_mouse_weighted_runner.submit(
                 weight_class,
@@ -446,6 +454,7 @@ async def solve_captcha(request: SolveCaptchaRequest):
                 *slider_args,
                 weight_class=weight_class,
                 slider_mode=selected_slider_mode,
+                force_real_mouse=force_real_mouse,
             )
         else:
             success, cookies, engine = await run_browser_task(
@@ -453,6 +462,7 @@ async def solve_captcha(request: SolveCaptchaRequest):
                 *slider_args,
                 weight_class=weight_class,
                 slider_mode=selected_slider_mode,
+                force_real_mouse=force_real_mouse,
             )
     except Exception as e:
         logger.error(f"【过滑块接口】account_id={safe_id} 执行异常: {e}")

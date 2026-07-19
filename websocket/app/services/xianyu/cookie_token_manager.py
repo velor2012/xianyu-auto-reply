@@ -23,6 +23,7 @@ from common.models.system_setting import SystemSetting
 from common.models.token_cache import TokenCache
 from common.services.im_token_api import extract_im_access_token, request_im_token
 from common.services.captcha.concurrency import run_browser_task
+from common.services.captcha.orchestrator import is_real_mouse_enabled
 from common.services.captcha.slider_mode import (
     SLIDER_MODE_REAL_MOUSE,
     refresh_slider_mode_from_database,
@@ -460,19 +461,9 @@ class CookieTokenManager:
             logger.warning(f"【{self.cookie_id}】重新获取滑块验证链接失败，沿用原链接: {self._safe_str(e)}")
             return None
 
-    async def _load_remote_captcha_config(self) -> dict | None:
-        """读取全局"远程过滑块"配置（system_settings，仅管理员可配）。
-
-        Returns:
-            dict {url, secret, pass_cookies, device_id}；未配置或读取失败返回 None（此时走本机逻辑）。
-            - pass_cookies 为 True 时表示"调用远程接口时传递账号 Cookie"（默认关闭）；
-            - device_id 仅在 pass_cookies 开启时一并下发，供远程端在链接过期时重取新链接。
-        """
+    async def _load_remote_captcha_config(self) -> tuple[dict | None, bool]:
+        """读取远程配置和本机强制真实鼠标开关，形成本次滑块任务快照。"""
         try:
-            from common.db.session import async_session_maker
-            from common.models.system_setting import SystemSetting
-            from sqlalchemy import select
-
             async with async_session_maker() as session:
                 rows = (await session.execute(
                     select(SystemSetting).where(
@@ -481,11 +472,13 @@ class CookieTokenManager:
                                 "captcha.remote_service_url",
                                 "captcha.remote_secret_key",
                                 "captcha.remote_pass_cookies",
+                                "captcha.force_real_mouse",
                             ]
                         )
                     )
                 )).scalars().all()
             m = {r.key: (r.value or "") for r in rows}
+            force_real_mouse = (m.get("captcha.force_real_mouse") or "").strip().lower() == "true"
             url = (m.get("captcha.remote_service_url") or "").strip()
             secret = (m.get("captcha.remote_secret_key") or "").strip()
             pass_cookies = (m.get("captcha.remote_pass_cookies") or "").strip().lower() == "true"
@@ -496,10 +489,11 @@ class CookieTokenManager:
                     "pass_cookies": pass_cookies,
                     # 仅开启开关时下发 device_id，未开启则不携带任何账号信息
                     "device_id": (self.device_id or "") if pass_cookies else "",
-                }
+                }, force_real_mouse
+            return None, force_real_mouse
         except Exception as e:
             logger.warning(f"【{self.cookie_id}】读取远程过滑块配置失败（走本机逻辑）: {self._safe_str(e)}")
-        return None
+        return None, False
 
     async def handle_captcha_verification(self, res_json: dict) -> str:
         """处理滑块验证，返回新的cookies字符串"""
@@ -556,7 +550,10 @@ class CookieTokenManager:
 
                 # 读取全局"远程过滑块"配置（system_settings，仅管理员可配）。
                 # 配置了则优先走远程接口；远程超时/不可用时回退本机逻辑。
-                remote_config = await self._load_remote_captcha_config()
+                remote_config, force_real_mouse = await self._load_remote_captcha_config()
+
+                # 强制模式跳过远程，所有本机任务进入 local 加权队列；关闭时保留原策略。
+                effective_remote_config = None if force_real_mouse else remote_config
 
                 # 真实鼠标任务先按权重排队，其他模式保持使用原浏览器任务专用线程池；
                 # 两条路径都不占用 asyncio 默认线程池，避免饿死 aiohttp 的 DNS 解析。
@@ -564,12 +561,18 @@ class CookieTokenManager:
                 # 返回 (是否成功, cookies, 通过引擎: remote/real_mouse/playwright/drissionpage/None)
                 slider_args = (
                     f"{self.cookie_id}", verification_url, True, False, 20,
-                    self.cookies_str, self._request_captcha_url_sync, remote_config,
+                    self.cookies_str, self._request_captcha_url_sync, effective_remote_config,
                 )
                 selected_slider_mode = await refresh_slider_mode_from_database()
                 if (
-                    remote_config is None
-                    and selected_slider_mode == SLIDER_MODE_REAL_MOUSE
+                    force_real_mouse
+                    or (
+                        remote_config is None
+                        and (
+                            is_real_mouse_enabled()
+                            or selected_slider_mode == SLIDER_MODE_REAL_MOUSE
+                        )
+                    )
                 ):
                     # 本机真实鼠标任务先进入前置本地队列，再提交给原浏览器执行器。
                     success, cookies, captcha_engine = await real_mouse_weighted_runner.submit(
@@ -578,12 +581,14 @@ class CookieTokenManager:
                         *slider_args,
                         weight_class="local",
                         slider_mode=selected_slider_mode,
+                        force_real_mouse=force_real_mouse,
                     )
                 else:
                     success, cookies, captcha_engine = await run_browser_task(
                         run_slider_verification_with_fallback,
                         *slider_args,
                         slider_mode=selected_slider_mode,
+                        force_real_mouse=force_real_mouse,
                     )
 
                 # 重取链接时发现 token 已可用（风控解除，无需滑块）：直接采用，跳过滑块结果处理。
