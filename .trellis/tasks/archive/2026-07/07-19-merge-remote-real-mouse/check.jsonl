@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/07-19-merge-remote-real-mouse/research/merge-analysis.md", "reason": "按逐文件决议检查双方能力和自动合并文件"}
+{"file": ".trellis/tasks/archive/2026-07/07-19-real-mouse-control/check.jsonl", "reason": "继承真人鼠标任务原有质量边界"}
+{"file": ".trellis/spec/frontend/real-mouse-control-contract.md", "reason": "检查三源优先级、公开远程边界和强制失败契约"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "RiskLogs 与管理员 API 类型、参数顺序检查"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端构建与交互质量检查"}
