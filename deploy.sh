@@ -83,8 +83,8 @@ REDIS_IMAGE=registry.cn-shanghai.aliyuncs.com/zhinian-software/xianyu-redis:7-al
 # 日志级别
 LOG_LEVEL=INFO
 
-# SQL 日志开关：true=打印每条执行的完整 SQL（默认，便于排查）；高并发生产环境可设为 false
-SQL_ECHO=true
+# SQL 日志开关：true=打印每条执行的完整 SQL（便于排查）；默认 false，高并发生产环境建议保持关闭
+SQL_ECHO=false
 
 # IM Token 缓存（xy_token_cache 表）随机过期时间区间（小时），不配置默认 5~10 小时
 TOKEN_CACHE_TTL_MIN_HOURS=5
@@ -232,7 +232,7 @@ services:
       - ENABLE_REMOTE_POPUP_ANNOUNCEMENTS=${ENABLE_REMOTE_POPUP_ANNOUNCEMENTS:-true}
       - BROWSER_HEADLESS=true
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - SQL_ECHO=${SQL_ECHO:-true}
+      - SQL_ECHO=${SQL_ECHO:-false}
       - TOKEN_CACHE_TTL_MIN_HOURS=${TOKEN_CACHE_TTL_MIN_HOURS:-5}
       - TOKEN_CACHE_TTL_MAX_HOURS=${TOKEN_CACHE_TTL_MAX_HOURS:-10}
       - TZ=Asia/Shanghai
@@ -283,7 +283,7 @@ services:
       - BACKEND_WEB_SERVICE_URL=http://backend-web:8089
       - STATIC_DIR=/app/static
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - SQL_ECHO=${SQL_ECHO:-true}
+      - SQL_ECHO=${SQL_ECHO:-false}
       - TOKEN_CACHE_TTL_MIN_HOURS=${TOKEN_CACHE_TTL_MIN_HOURS:-5}
       - TOKEN_CACHE_TTL_MAX_HOURS=${TOKEN_CACHE_TTL_MAX_HOURS:-10}
       - TZ=Asia/Shanghai
@@ -334,7 +334,7 @@ services:
       - STATIC_DIR=/app/static
       - BACKUP_DIR=/app/backups
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - SQL_ECHO=${SQL_ECHO:-true}
+      - SQL_ECHO=${SQL_ECHO:-false}
       - TZ=Asia/Shanghai
     volumes:
       - ./xianyu_auto_reply/logs/scheduler:/app/scheduler/logs
@@ -436,14 +436,14 @@ mkdir -p \
     "$WORK_DIR/xianyu_auto_reply/browser_data"
 
 # ========== 部署 ==========
-echo -e "${YELLOW}步骤 1/3: 停止旧容器（仅本项目）...${NC}"
-$DC_CMD down 2>/dev/null || true
-echo -e "${GREEN}✓ 旧容器已清理${NC}"
-
-echo ""
-echo -e "${YELLOW}步骤 2/3: 拉取最新镜像...${NC}"
+echo -e "${YELLOW}步骤 1/3: 拉取最新镜像（旧容器保持运行，减少停机时间）...${NC}"
 $DC_CMD pull
 echo -e "${GREEN}✓ 镜像拉取完成${NC}"
+
+echo ""
+echo -e "${YELLOW}步骤 2/3: 停止旧容器（仅本项目）...${NC}"
+$DC_CMD down 2>/dev/null || true
+echo -e "${GREEN}✓ 旧容器已清理${NC}"
 
 echo ""
 echo -e "${YELLOW}步骤 3/3: 启动服务...${NC}"
